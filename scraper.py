@@ -111,6 +111,106 @@ def processAddendaPdf(absDocUrl):
     return data
 
 
+def parseAddendaLists(addendaLists):
+    for addendaList in addendaLists:
+        addendaId = None
+        standard = None
+        absDocUrl = None
+        topics = None
+        state = None
+        comment = None
+        for child in addendaList:
+            #print child.tag
+            if child.tag == 'li':
+                links = child.cssselect('a')
+                assert len(links) == 1, 'Found %d a tags in the addenda list item' % len(links)
+                relDocUrl = urllib.quote(links[0].attrib.get('href'))
+                
+                idPatterns = [
+                              'Add-(?P<year>[0-9]{4})-(?P<ashrae_id>[0-9.]+)(?P<ashrae_ext>[a-z]+).*',
+                              'Add-(?P<year>[0-9]{4})-(?P<ashrae_id>[0-9.]+)-(?P<ashrae_sub_id>[0-9]+)-(?P<ashrae_ext>[a-z]+).*',
+                              'Add-(?P<ashrae_id>[0-9]{3})-(?P<year>[0-9]{4})(?P<ashrae_ext>[a-z]+).*',
+                              'Add-(?P<ashrae_id>[0-9]{3})[_-](?P<ashrae_sub_id>[0-9]+)-(?P<year>[0-9]{4})(?P<ashrae_ext>[a-z]+).*',
+                              ]
+                for idPattern in idPatterns:
+                    idMatch = re.match(idPattern, relDocUrl, re.I)
+                    if idMatch:
+                        if idMatch.groupdict().has_key('ashrae_sub_id'):
+                            standard = '%s.%s' % (idMatch.group('ashrae_id'), idMatch.group('ashrae_sub_id'))
+                        else:
+                            standard = idMatch.group('ashrae_id')
+                        addendaId = '%s-%s%s' % (standard, idMatch.group('year'), idMatch.group('ashrae_ext'))
+                        break
+                if not standard:
+                    raise BaseException('Could not match %s' % relDocUrl)
+
+                absDocUrl = ('/'.join((base, relDocUrl)))
+                print 'Doc URL: %s' % absDocUrl
+                comment = links[0].tail            
+                if comment is not None:
+                    comment = comment.strip('() ')
+                    #print comment
+                    reviewMatch = re.match('.*review.*', comment, re.I)
+                    if reviewMatch:
+                        state = STATE['review']
+                    else:
+                        approvedMatch = re.match('.*approved.*', comment, re.I)
+                        if approvedMatch:
+                            state = STATE['approved']
+                        else:
+                            raise BaseException('Could not find status for %s' % addendaId)
+                else:
+                    comment = ''
+                    state = STATE['approved']
+        
+    #        elif child.tag == 'a':
+    #            if child.attrib.has_key('name'):
+    #                addendaId = child.attrib['name']
+    #                print 'Addenda ID: %s' % addendaId
+            elif child.tag == 'ol':
+                topicItems = child.cssselect('li')
+                topics = {}            
+                for index, topicItem in enumerate(topicItems, start=1):
+                    topics[index] = topicItem.text
+
+            if addendaId and absDocUrl and topics and state and standard:
+                data = scraperwiki.sqlite.select("* from addenda where id=?", [addendaId])
+                print data
+                
+                if len(data) > 1:
+                    raise BaseException('ID %s should be unique but was found %d times' % (addendaId, len(data)))
+                elif len(data) < 1:
+                    data = {}
+                else:
+                    data = data[0][0]
+                print data
+                return
+
+                data.update({
+                            'id' : addendaId,
+                            'standard' : standard,
+                            'doc_url' : absDocUrl,
+                            'topics' : topics,
+                            'state' : state,
+                            'comment' : comment,
+                            })
+
+                if state == STATE['approved'] and standard == '135' and (not data.has_key('revision') or 
+                                                   data['revision'] is None or
+                                                   data['revision'].startswith('ERROR')):
+                    pdfData = processAddendaPdf(absDocUrl)
+                    data.update(pdfData)
+
+                print 'Saving data %s ...' % str(data)
+                # @todo: existing items should be updated
+                scraperwiki.sqlite.save(unique_keys=['id'], data=data, table_name='addenda')
+                addendaId = None
+                standard = None
+                absDocUrl = None
+                topics = None
+                state = None
+                comment = None
+    
 scraperwiki.sqlite.execute("create table if not exists addenda (id text, revision text)")
 url = 'http://www.bacnet.org/Addenda/index.html'
 base, page = url.rsplit('/', 1)
@@ -120,105 +220,6 @@ root = doc
 tables = root.cssselect('table')
 addendaTable = tables[1]
 addendaLists = addendaTable.cssselect('ul')
-
-for addendaList in addendaLists:
-    addendaId = None
-    standard = None
-    absDocUrl = None
-    topics = None
-    state = None
-    comment = None
-    for child in addendaList:
-        #print child.tag
-        if child.tag == 'li':
-            links = child.cssselect('a')
-            assert len(links) == 1, 'Found %d a tags in the addenda list item' % len(links)
-            relDocUrl = urllib.quote(links[0].attrib.get('href'))
-            
-            idPatterns = [
-                          'Add-(?P<year>[0-9]{4})-(?P<ashrae_id>[0-9.]+)(?P<ashrae_ext>[a-z]+).*',
-                          'Add-(?P<year>[0-9]{4})-(?P<ashrae_id>[0-9.]+)-(?P<ashrae_sub_id>[0-9]+)-(?P<ashrae_ext>[a-z]+).*',
-                          'Add-(?P<ashrae_id>[0-9]{3})-(?P<year>[0-9]{4})(?P<ashrae_ext>[a-z]+).*',
-                          'Add-(?P<ashrae_id>[0-9]{3})[_-](?P<ashrae_sub_id>[0-9]+)-(?P<year>[0-9]{4})(?P<ashrae_ext>[a-z]+).*',
-                          ]
-            for idPattern in idPatterns:
-                idMatch = re.match(idPattern, relDocUrl, re.I)
-                if idMatch:
-                    if idMatch.groupdict().has_key('ashrae_sub_id'):
-                        standard = '%s.%s' % (idMatch.group('ashrae_id'), idMatch.group('ashrae_sub_id'))
-                    else:
-                        standard = idMatch.group('ashrae_id')
-                    addendaId = '%s-%s%s' % (standard, idMatch.group('year'), idMatch.group('ashrae_ext'))
-                    break
-            if not standard:
-                raise BaseException('Could not match %s' % relDocUrl)
-
-            absDocUrl = ('/'.join((base, relDocUrl)))
-            print 'Doc URL: %s' % absDocUrl
-            comment = links[0].tail            
-            if comment is not None:
-                comment = comment.strip('() ')
-                #print comment
-                reviewMatch = re.match('.*review.*', comment, re.I)
-                if reviewMatch:
-                    state = STATE['review']
-                else:
-                    approvedMatch = re.match('.*approved.*', comment, re.I)
-                    if approvedMatch:
-                        state = STATE['approved']
-                    else:
-                        raise BaseException('Could not find status for %s' % addendaId)
-            else:
-                comment = ''
-                state = STATE['approved']
-    
-#        elif child.tag == 'a':
-#            if child.attrib.has_key('name'):
-#                addendaId = child.attrib['name']
-#                print 'Addenda ID: %s' % addendaId
-        elif child.tag == 'ol':
-            topicItems = child.cssselect('li')
-            topics = {}            
-            for index, topicItem in enumerate(topicItems, start=1):
-                topics[index] = topicItem.text
-
-        if addendaId and absDocUrl and topics and state and standard:
-            data = scraperwiki.sqlite.select("* from addenda where id=?", [addendaId])
-            print data
-            
-            if len(data) > 1:
-                raise BaseException('ID %s should be unique but was found %d times' % (addendaId, len(data)))
-            elif len(data) < 1:
-                data = {}
-            else:
-                data = data[0][0]
-            print data
-            return
-
-            data.update({
-                        'id' : addendaId,
-                        'standard' : standard,
-                        'doc_url' : absDocUrl,
-                        'topics' : topics,
-                        'state' : state,
-                        'comment' : comment,
-                        })
-
-            if state == STATE['approved'] and standard == '135' and (not data.has_key('revision') or 
-                                               data['revision'] is None or
-                                               data['revision'].startswith('ERROR')):
-                pdfData = processAddendaPdf(absDocUrl)
-                data.update(pdfData)
-
-            print 'Saving data %s ...' % str(data)
-            # @todo: existing items should be updated
-            scraperwiki.sqlite.save(unique_keys=['id'], data=data, table_name='addenda')
-            addendaId = None
-            standard = None
-            absDocUrl = None
-            topics = None
-            state = None
-            comment = None
-    
+parseAddendaLists(addendaLists)
             
 
