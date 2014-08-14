@@ -182,9 +182,7 @@ def parseAddendaLists(addendaLists):
                 elif len(data) < 1:
                     data = {}
                 else:
-                    data = data[0].keys()[0]
-                    print data
-                    data = dict()
+                    data = dict(data[0])
                 print data
                 return
 
