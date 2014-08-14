@@ -182,14 +182,14 @@ def parseAddendaLists(addendaLists):
                 elif len(data) < 1:
                     data = {}
                 else:
-                    data = dict(data[0])
+                    data = data[0]
                 print data
 
                 data.update({
                             'id' : addendaId,
                             'standard' : standard,
                             'doc_url' : absDocUrl,
-                            'topics' : topics,
+                            'topics' : str(topics),
                             'state' : state,
                             'comment' : comment,
                             })
