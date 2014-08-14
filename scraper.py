@@ -185,7 +185,8 @@ for addendaList in addendaLists:
         if addendaId and absDocUrl and topics and state and standard:
             data = scraperwiki.sqlite.select("* from addenda where id=?", [addendaId])
             print data[0]
-			exit
+            exit
+            
             if len(data) > 1:
                 raise BaseException('ID %s should be unique but was found %d times' % (addendaId, len(data)))
             elif len(data) < 1:
