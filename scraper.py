@@ -184,7 +184,6 @@ def parseAddendaLists(addendaLists):
                 else:
                     data = dict(data[0])
                 print data
-                return
 
                 data.update({
                             'id' : addendaId,
