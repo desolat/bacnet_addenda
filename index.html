@@ -15,7 +15,7 @@
     <script type="text/javascript" src="http://cdn.datatables.net/1.10.2/js/jquery.dataTables.min.js"></script>
     <script class="init" type="text/javascript">
       $(document).ready(function() {
-        $('#example').DataTable( {
+        var table = $('#example').DataTable( {
           "ajax": {
             "url": "https://api.morph.io/desolat/bacnet_addenda/data.json?key=%2FZ2zMtTdJxoTR0ZmIAr5&query=select%20*%20from%20'addenda'%20limit%2010",
             "dataSrc": ""
@@ -30,6 +30,9 @@
             {"data": "revision"}
           ]
         });
+        setInterval( function () {
+          table.ajax.reload();
+        }, 30000 );
       });
     </script>
   </head>
