@@ -111,7 +111,7 @@ def processAddendaPdf(absDocUrl):
     return data
 
 
-def parseAddendaInfoFromDocName(relDocUrl) {
+def parseAddendaInfoFromDocName(relDocUrl):
     idPatterns = [
                   'Add-(?P<year>[0-9]{4})-(?P<ashrae_id>[0-9.]+)(?P<ashrae_ext>[a-z]+).*',
                   'Add-(?P<year>[0-9]{4})-(?P<ashrae_id>[0-9.]+)-(?P<ashrae_sub_id>[0-9]+)-(?P<ashrae_ext>[a-z]+).*',
@@ -130,7 +130,7 @@ def parseAddendaInfoFromDocName(relDocUrl) {
      if not standard:
          raise BaseException('Could not find addendum information in %s' % relDocUrl)
      return standa, addendaId
-}
+
 
 def parseAddendaLists(addendaLists):
     for addendaList in addendaLists:
@@ -156,7 +156,7 @@ def parseAddendaLists(addendaLists):
                         standard = match.group('ashrae_id')
                         addendaId = '%s-%s%s' % (standard, match.group('year'), match.group('ashrae_ext'))
                     else:
-                        raise BaseException('Could not find addendum information in %s' % relDocUrl)
+                        raise BaseException('Could not find addendum information in %s' % linkTitle)
 
                 absDocUrl = ('/'.join((base, relDocUrl)))
                 print 'Doc URL: %s' % absDocUrl
