@@ -111,6 +111,27 @@ def processAddendaPdf(absDocUrl):
     return data
 
 
+def parseAddendaInfoFromDocName(relDocUrl) {
+    idPatterns = [
+                  'Add-(?P<year>[0-9]{4})-(?P<ashrae_id>[0-9.]+)(?P<ashrae_ext>[a-z]+).*',
+                  'Add-(?P<year>[0-9]{4})-(?P<ashrae_id>[0-9.]+)-(?P<ashrae_sub_id>[0-9]+)-(?P<ashrae_ext>[a-z]+).*',
+                  'Add-(?P<ashrae_id>[0-9]{3})-(?P<year>[0-9]{4})(?P<ashrae_ext>[a-z]+).*',
+                  'Add-(?P<ashrae_id>[0-9]{3})[_-](?P<ashrae_sub_id>[0-9]+)-(?P<year>[0-9]{4})(?P<ashrae_ext>[a-z]+).*',
+    ]
+    for idPattern in idPatterns:
+        idMatch = re.match(idPattern, relDocUrl, re.I)
+        if idMatch:
+            if idMatch.groupdict().has_key('ashrae_sub_id'):
+                standard = '%s.%s' % (idMatch.group('ashrae_id'), idMatch.group('ashrae_sub_id'))
+            else:
+                standard = idMatch.group('ashrae_id')
+            addendaId = '%s-%s%s' % (standard, idMatch.group('year'), idMatch.group('ashrae_ext'))
+            break
+     if not standard:
+         raise BaseException('Could not find addendum information in %s' % relDocUrl)
+     return standa, addendaId
+}
+
 def parseAddendaLists(addendaLists):
     for addendaList in addendaLists:
         addendaId = None
@@ -125,24 +146,17 @@ def parseAddendaLists(addendaLists):
                 links = child.cssselect('a')
                 assert len(links) == 1, 'Found %d a tags in the addenda list item' % len(links)
                 relDocUrl = urllib.quote(links[0].attrib.get('href'))
-                
-                idPatterns = [
-                              'Add-(?P<year>[0-9]{4})-(?P<ashrae_id>[0-9.]+)(?P<ashrae_ext>[a-z]+).*',
-                              'Add-(?P<year>[0-9]{4})-(?P<ashrae_id>[0-9.]+)-(?P<ashrae_sub_id>[0-9]+)-(?P<ashrae_ext>[a-z]+).*',
-                              'Add-(?P<ashrae_id>[0-9]{3})-(?P<year>[0-9]{4})(?P<ashrae_ext>[a-z]+).*',
-                              'Add-(?P<ashrae_id>[0-9]{3})[_-](?P<ashrae_sub_id>[0-9]+)-(?P<year>[0-9]{4})(?P<ashrae_ext>[a-z]+).*',
-                              ]
-                for idPattern in idPatterns:
-                    idMatch = re.match(idPattern, relDocUrl, re.I)
-                    if idMatch:
-                        if idMatch.groupdict().has_key('ashrae_sub_id'):
-                            standard = '%s.%s' % (idMatch.group('ashrae_id'), idMatch.group('ashrae_sub_id'))
-                        else:
-                            standard = idMatch.group('ashrae_id')
-                        addendaId = '%s-%s%s' % (standard, idMatch.group('year'), idMatch.group('ashrae_ext'))
-                        break
-                if not standard:
-                    raise BaseException('Could not match %s' % relDocUrl)
+                try:
+                    standard, addendaId = parseAddendaInfoFromDocName(relDocUrl)
+                except:
+                    linkTitle = links[0].text_content()
+                    match = re.match('Addendum (?P<ashrae_id>[0-9.]+)-(?P<year>[0-9]{4})(?P<ashrae_ext>[a-z]+)', 
+                                     linkTitle.strip())
+                    if match:
+                        standard = match.group('ashrae_id')
+                        addendaId = '%s-%s%s' % (standard, match.group('year'), match.group('ashrae_ext'))
+                    else:
+                        raise BaseException('Could not find addendum information in %s' % relDocUrl)
 
                 absDocUrl = ('/'.join((base, relDocUrl)))
                 print 'Doc URL: %s' % absDocUrl
