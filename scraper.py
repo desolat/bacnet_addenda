@@ -127,9 +127,9 @@ def parseAddendaInfoFromDocName(relDocUrl):
                 standard = idMatch.group('ashrae_id')
             addendaId = '%s-%s%s' % (standard, idMatch.group('year'), idMatch.group('ashrae_ext'))
             break
-     if not standard:
-         raise BaseException('Could not find addendum information in %s' % relDocUrl)
-     return standa, addendaId
+    if not standard:
+        raise BaseException('Could not find addendum information in %s' % relDocUrl)
+    return standa, addendaId
 
 
 def parseAddendaLists(addendaLists):
